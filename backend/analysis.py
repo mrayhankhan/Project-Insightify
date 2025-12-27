@@ -67,6 +67,7 @@ def calculate_kpis(name: str) -> Dict[str, Any]:
 
 from sklearn.cluster import KMeans
 from sklearn.preprocessing import StandardScaler
+from sklearn.decomposition import PCA
 
 def perform_segmentation(name: str, n_clusters: int = 3) -> Dict[str, Any]:
     """Performs K-Means segmentation on the dataset."""
@@ -96,6 +97,12 @@ def perform_segmentation(name: str, n_clusters: int = 3) -> Dict[str, Any]:
     
     df_clean["cluster"] = clusters
     
+    # PCA for visualization (2D)
+    pca = PCA(n_components=2)
+    pca_components = pca.fit_transform(scaled_data)
+    df_clean["x"] = pca_components[:, 0]
+    df_clean["y"] = pca_components[:, 1]
+    
     # Analyze clusters
     cluster_summary = []
     for i in range(n_clusters):
@@ -103,7 +110,9 @@ def perform_segmentation(name: str, n_clusters: int = 3) -> Dict[str, Any]:
         summary = {
             "cluster_id": int(i),
             "size": int(len(cluster_data)),
-            "features": cluster_data[features].mean().to_dict()
+            "features": cluster_data[features].mean().to_dict(),
+            # Sample points for visualization (limit to 50 per cluster to keep payload small)
+            "points": cluster_data[["x", "y"]].head(50).to_dict(orient="records")
         }
         cluster_summary.append(summary)
         
@@ -121,26 +130,26 @@ def generate_insights(name: str) -> List[Dict[str, str]]:
         avg_views = df["views"].mean()
         high_views = df[df["views"] > avg_views]
         if high_views["watch_time_minutes"].mean() < 10:
-            insights.append({"category": "Content Strategy", "insight": "High engagement videos tend to be under 10 minutes."})
+            insights.append({"category": "Content Strategy", "insight": "High engagement videos tend to be under 10 minutes.", "impact": "High"})
         
         most_popular = df["category"].mode()[0]
-        insights.append({"category": "Trend", "insight": f"The most popular category is {most_popular}."})
+        insights.append({"category": "Trend", "insight": f"The most popular category is {most_popular}.", "impact": "Medium"})
 
     elif name == "ads":
         high_cost = df[df["cost"] > df["cost"].quantile(0.75)]
         low_conv = high_cost[high_cost["conversions"] < high_cost["conversions"].quantile(0.25)]
         if not low_conv.empty:
-             insights.append({"category": "Optimization", "insight": "Certain ad campaigns have high cost but low conversion."})
+             insights.append({"category": "Optimization", "insight": "Certain ad campaigns have high cost but low conversion.", "impact": "High"})
              
         avg_ctr = (df["clicks"] / df["impressions"]).mean()
-        insights.append({"category": "Performance", "insight": f"Average CTR is {avg_ctr:.2%}. Campaigns below this need optimization."})
+        insights.append({"category": "Performance", "insight": f"Average CTR is {avg_ctr:.2%}. Campaigns below this need optimization.", "impact": "Medium"})
 
     elif name == "banking":
         churners = df[df["churn_flag"] == 1]
         if churners["products_used"].mean() < df["products_used"].mean():
-            insights.append({"category": "Retention", "insight": "Customers with fewer products show higher churn."})
+            insights.append({"category": "Retention", "insight": "Customers with fewer products show higher churn.", "impact": "High"})
             
         if churners["account_balance"].mean() < df["account_balance"].mean():
-             insights.append({"category": "Risk", "insight": "Lower account balances are correlated with higher churn risk."})
+             insights.append({"category": "Risk", "insight": "Lower account balances are correlated with higher churn risk.", "impact": "Medium"})
              
     return insights

@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useState } from 'react';
-import { getKPIs, getPreview } from '@/lib/api';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line } from 'recharts';
-import { Users, DollarSign, Eye, MousePointer, Activity, TrendingUp } from 'lucide-react';
+import { getKPIs, getPreview, getSegmentation, getInsights } from '@/lib/api';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line, ScatterChart, Scatter, ZAxis } from 'recharts';
+import { Users, DollarSign, Eye, MousePointer, Activity, TrendingUp, Lightbulb, Target } from 'lucide-react';
 
 export default function DashboardPage() {
     const [youtubeKPIs, setYoutubeKPIs] = useState<any>(null);
@@ -11,6 +11,9 @@ export default function DashboardPage() {
     const [bankingKPIs, setBankingKPIs] = useState<any>(null);
     const [youtubeData, setYoutubeData] = useState<any[]>([]);
     const [adsData, setAdsData] = useState<any[]>([]);
+
+    const [segmentationData, setSegmentationData] = useState<any>(null);
+    const [insightsData, setInsightsData] = useState<any[]>([]);
 
     const [loading, setLoading] = useState(true);
 
@@ -34,6 +37,18 @@ export default function DashboardPage() {
                 const bkKPIs = await getKPIs('banking');
                 setBankingKPIs(bkKPIs);
             } catch (e) { console.log("Banking data not found"); }
+
+            // Fetch Segmentation and Insights for the first available dataset (prioritizing Banking > Ads > YouTube for demo)
+            try {
+                let type = 'youtube';
+                if (await getKPIs('banking').then(() => true).catch(() => false)) type = 'banking';
+                else if (await getKPIs('ads').then(() => true).catch(() => false)) type = 'ads';
+
+                const seg = await getSegmentation(type);
+                setSegmentationData(seg);
+                const ins = await getInsights(type);
+                setInsightsData(ins);
+            } catch (e) { console.log("Segmentation/Insights error", e); }
 
             setLoading(false);
         };
@@ -136,6 +151,65 @@ export default function DashboardPage() {
                     </div>
                 )}
 
+                {/* Segmentation & Insights Section */}
+                {(segmentationData || insightsData.length > 0) && (
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                        {/* Segmentation Chart */}
+                        {segmentationData && (
+                            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 h-[500px]">
+                                <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+                                    <Target className="text-purple-600" /> Customer Segmentation
+                                </h2>
+                                <p className="text-sm text-gray-500 mb-4">AI-driven clustering of your audience/customers.</p>
+                                <ResponsiveContainer width="100%" height="85%">
+                                    <ScatterChart margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
+                                        <CartesianGrid />
+                                        <XAxis type="number" dataKey="x" name="PC1" unit="" />
+                                        <YAxis type="number" dataKey="y" name="PC2" unit="" />
+                                        <Tooltip cursor={{ strokeDasharray: '3 3' }} />
+                                        <Legend />
+                                        {segmentationData.clusters.map((cluster: any, index: number) => (
+                                            <Scatter
+                                                key={cluster.cluster_id}
+                                                name={`Cluster ${cluster.cluster_id}`}
+                                                data={cluster.points}
+                                                fill={['#8884d8', '#82ca9d', '#ffc658'][index % 3]}
+                                            />
+                                        ))}
+                                    </ScatterChart>
+                                </ResponsiveContainer>
+                            </div>
+                        )}
+
+                        {/* Insights List */}
+                        {insightsData.length > 0 && (
+                            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                                <h2 className="text-xl font-semibold mb-6 flex items-center gap-2">
+                                    <Lightbulb className="text-yellow-500" /> Actionable Insights
+                                </h2>
+                                <div className="space-y-4">
+                                    {insightsData.map((insight: any, index: number) => (
+                                        <div key={index} className="p-4 rounded-lg border border-gray-100 bg-gray-50 hover:bg-white hover:shadow-md transition">
+                                            <div className="flex justify-between items-start mb-2">
+                                                <span className="text-xs font-semibold uppercase tracking-wider text-gray-500 bg-gray-200 px-2 py-1 rounded">
+                                                    {insight.category}
+                                                </span>
+                                                <span className={`text-xs font-bold px-2 py-1 rounded ${insight.impact === 'High' ? 'bg-red-100 text-red-600' :
+                                                    insight.impact === 'Medium' ? 'bg-yellow-100 text-yellow-600' :
+                                                        'bg-blue-100 text-blue-600'
+                                                    }`}>
+                                                    {insight.impact} Impact
+                                                </span>
+                                            </div>
+                                            <p className="text-gray-800 font-medium">{insight.insight}</p>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                )}
+
                 {!youtubeKPIs && !adsKPIs && !bankingKPIs && (
                     <div className="text-center py-20 bg-gray-50 rounded-xl border border-dashed border-gray-300">
                         <h3 className="text-xl font-medium text-gray-500 mb-2">No Data Available</h3>
@@ -143,6 +217,7 @@ export default function DashboardPage() {
                     </div>
                 )}
             </div>
+
         </div>
     );
 }

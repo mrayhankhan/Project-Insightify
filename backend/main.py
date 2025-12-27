@@ -1,7 +1,9 @@
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from typing import List, Dict, Any
-from backend import analysis, models
+from backend import analysis, models, database
+from pydantic import BaseModel
+import os
 
 app = FastAPI(title="Insightify API", description="Unified Business Analytics Dashboard API")
 
@@ -14,9 +16,43 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+class LoginRequest(BaseModel):
+    email: str
+    password: str
+
 @app.get("/")
 async def root():
     return {"message": "Welcome to Insightify API"}
+
+@app.post("/auth/login")
+async def login(request: LoginRequest):
+    # Admin Login Hardcoded Check (as requested)
+    if request.email == "admin" and request.password == "admin":
+        # In a real app, we would return a proper JWT signed by us or Supabase
+        # For this simple implementation, we return a mock session object
+        return {
+            "access_token": "admin-mock-token",
+            "token_type": "bearer",
+            "user": {
+                "id": "admin",
+                "email": "admin@insightify.com",
+                "role": "admin"
+            }
+        }
+    
+    # For regular users, we expect them to use Supabase Auth on frontend
+    # But if we needed backend login:
+    if database.supabase:
+        try:
+            res = database.supabase.auth.sign_in_with_password({
+                "email": request.email,
+                "password": request.password
+            })
+            return res
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=str(e))
+    
+    raise HTTPException(status_code=401, detail="Invalid credentials")
 
 @app.post("/upload/{dataset_type}", response_model=models.DatasetSummary)
 async def upload_dataset(dataset_type: str, file: UploadFile = File(...)):
@@ -26,6 +62,7 @@ async def upload_dataset(dataset_type: str, file: UploadFile = File(...)):
     if dataset_type not in ["youtube", "ads", "banking"]:
         raise HTTPException(status_code=400, detail="Invalid dataset type. Must be 'youtube', 'ads', or 'banking'.")
     
+    print(f"Received upload request for {dataset_type}")
     content = await file.read()
     try:
         summary = analysis.load_dataset(dataset_type, content)

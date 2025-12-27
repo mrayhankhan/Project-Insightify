@@ -7,6 +7,7 @@ import { Upload, CheckCircle, AlertCircle } from 'lucide-react';
 export default function UploadPage() {
     const [status, setStatus] = useState<Record<string, string>>({});
     const [loading, setLoading] = useState<Record<string, boolean>>({});
+    const [progress, setProgress] = useState<Record<string, number>>({});
 
     const handleUpload = async (type: string, e: React.ChangeEvent<HTMLInputElement>) => {
         if (!e.target.files?.[0]) return;
@@ -14,9 +15,12 @@ export default function UploadPage() {
         const file = e.target.files[0];
         setLoading(prev => ({ ...prev, [type]: true }));
         setStatus(prev => ({ ...prev, [type]: '' }));
+        setProgress(prev => ({ ...prev, [type]: 0 }));
 
         try {
-            await uploadDataset(type, file);
+            await uploadDataset(type, file, (percent) => {
+                setProgress(prev => ({ ...prev, [type]: percent }));
+            });
             setStatus(prev => ({ ...prev, [type]: 'success' }));
         } catch (error) {
             console.error(error);
@@ -44,7 +48,20 @@ export default function UploadPage() {
                     />
                 </label>
 
-                {loading[type] && <span className="text-gray-500 text-sm animate-pulse">Uploading...</span>}
+                {loading[type] && (
+                    <div className="flex flex-col w-full max-w-xs gap-1">
+                        <div className="flex justify-between text-xs text-gray-500">
+                            <span>Uploading...</span>
+                            <span>{progress[type] || 0}%</span>
+                        </div>
+                        <div className="w-full bg-gray-200 rounded-full h-2">
+                            <div
+                                className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                                style={{ width: `${progress[type] || 0}%` }}
+                            ></div>
+                        </div>
+                    </div>
+                )}
                 {status[type] === 'success' && <span className="text-green-600 flex items-center gap-1 text-sm"><CheckCircle size={16} /> Uploaded</span>}
                 {status[type] === 'error' && <span className="text-red-600 flex items-center gap-1 text-sm"><AlertCircle size={16} /> Failed</span>}
             </div>

@@ -7,3 +7,8 @@ matplotlib
 plotly
 pydantic
 python-multipart
+supabase
+python-dotenv
+pytest
+httpx
+pyarrow

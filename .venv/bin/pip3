@@ -1,4 +1,4 @@
-#!/home/ray/Downloads/Project_Insightify/.venv/bin/python3
+#!/Users/raymac/Downloads/Project-Insightify/.venv/bin/python3.13
 # -*- coding: utf-8 -*-
 import re
 import sys

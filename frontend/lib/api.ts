@@ -1,15 +1,22 @@
 import axios from 'axios';
 
-const API_URL = 'http://localhost:8000';
+const API_URL = 'http://127.0.0.1:8000';
 
 export const api = axios.create({
     baseURL: API_URL,
 });
 
-export const uploadDataset = async (type: string, file: File) => {
+export const uploadDataset = async (type: string, file: File, onProgress?: (progress: number) => void) => {
     const formData = new FormData();
     formData.append('file', file);
-    const response = await api.post(`/upload/${type}`, formData);
+    const response = await api.post(`/api/upload`, formData, {
+        onUploadProgress: (progressEvent) => {
+            if (progressEvent.total) {
+                const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+                if (onProgress) onProgress(percentCompleted);
+            }
+        },
+    });
     return response.data;
 };
 
@@ -28,7 +35,7 @@ export const getKPIs = async (type: string) => {
     return response.data;
 };
 
-export const getSegmentation = async (type: string, n_clusters: int = 3) => {
+export const getSegmentation = async (type: string, n_clusters: number = 3) => {
     const response = await api.get(`/data/${type}/segmentation?n_clusters=${n_clusters}`);
     return response.data;
 };
